@@ -2,7 +2,29 @@
   "permissions": {
     "allow": [
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm start *)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -s -X POST http://localhost:3000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\": \"admin@localhost\", \"password\": \"Admin@12345678\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\": \"admin@cade.gov.br\", \"password\": \"Admin@12345678\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(cat)",
+      "Bash(node /tmp/create_user.js)",
+      "Bash(node create_user.js)",
+      "Bash(rm create_user.js)",
+      "Bash(node check_roles.js)",
+      "Bash(rm check_roles.js)",
+      "Bash(node list_users.js)",
+      "Bash(rm list_users.js)",
+      "Bash(xargs grep -l \"admin@cade\")",
+      "Bash(netstat -tuln)",
+      "Bash(node create_user_fixed.js)",
+      "Bash(rm create_user_fixed.js)",
+      "Bash(curl -s -X GET http://localhost:3000/api/v1/users/me -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMzRlMWM0Yy05YzI3LTRhNDYtYjcxMi0yODcyYjMzY2FhMWQiLCJpYXQiOjE3NzkwNjQxMzIsImV4cCI6MTc3OTA2NTAzMn0.9xVKCBPJOXyMC-PfvdOTB3TRaFFQk7NND0nyJvjbcNs')"
     ]
   }
 }

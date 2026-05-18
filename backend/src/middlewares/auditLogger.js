@@ -54,14 +54,17 @@ export function auditLoggerMiddleware(fastify) {
     }
 
     try {
-      // Obter hash anterior para encadear
+      // Obter hash anterior e próximo sequence
       const lastLog = getDb().prepare(`
-        SELECT current_hash FROM audit_log
+        SELECT current_hash, sequence FROM audit_log
         ORDER BY sequence DESC
         LIMIT 1
       `).get();
 
       const previousHash = lastLog?.current_hash || 'genesis';
+      const nextSequence = (lastLog?.sequence || 0) + 1;
+      const logId = `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
       const payloadHash = calculateHash(payload);
       const currentHash = calculateHash({
         previous_hash: previousHash,
@@ -72,11 +75,14 @@ export function auditLoggerMiddleware(fastify) {
       });
 
       // Inserir log de auditoria
-      db.prepare(`
+      getDb().prepare(`
         INSERT INTO audit_log (
+          id,
+          sequence,
           timestamp,
           actor_id,
           actor_ip,
+          actor_agent,
           action,
           target_type,
           target_id,
@@ -84,11 +90,14 @@ export function auditLoggerMiddleware(fastify) {
           previous_hash,
           current_hash,
           success
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
+        logId,
+        nextSequence,
         new Date().toISOString(),
         request.user?.id || null,
         getActorIP(request),
+        request.headers['user-agent'] || null,
         auditAction,
         targetType,
         targetId,

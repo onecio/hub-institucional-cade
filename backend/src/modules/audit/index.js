@@ -150,7 +150,7 @@ export async function registerAuditRoutes(fastify) {
       }
 
       // Verificar integridade do hash chain (últimas 3 entradas)
-      const previousLogs = db.prepare(`
+      const previousLogs = getDb().prepare(`
         SELECT * FROM audit_log WHERE sequence < ? ORDER BY sequence DESC LIMIT 3
       `).all(log.sequence);
 
@@ -183,7 +183,7 @@ export async function registerAuditRoutes(fastify) {
   // GET /api/v1/audit/verify-chain
   fastify.get('/verify-chain', { preHandler: [requirePermission(['audit:read'])] }, async (request, reply) => {
     try {
-      const logs = db.prepare(`
+      const logs = getDb().prepare(`
         SELECT * FROM audit_log ORDER BY sequence ASC
       `).all();
 
