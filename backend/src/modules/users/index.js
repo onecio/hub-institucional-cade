@@ -55,7 +55,7 @@ export async function registerUserRoutes(fastify) {
         });
       }
 
-      const roles = db.prepare(`
+      const roles = getDb().prepare(`
         SELECT r.id, r.name, r.level
         FROM roles r
         INNER JOIN user_roles ur ON r.id = ur.role_id
@@ -122,7 +122,7 @@ export async function registerUserRoutes(fastify) {
     try {
       // TODO: implementar descriptografia e validação
       // Por enquanto, simular ativação
-      db.prepare(`
+      getDb().prepare(`
         UPDATE users
         SET mfa_enabled = 1
         WHERE id = ?
@@ -180,7 +180,7 @@ export async function registerUserRoutes(fastify) {
       const newPasswordHash = await hash(new_password);
 
       // Atualizar senha e revogar todas as sessões (exceto atual)
-      db.prepare(`
+      getDb().prepare(`
         UPDATE users
         SET password_hash = ?
         WHERE id = ?
@@ -188,7 +188,7 @@ export async function registerUserRoutes(fastify) {
 
       // Revogar outras sessões
       const refreshToken = request.cookies.__Host_refresh;
-      db.prepare(`
+      getDb().prepare(`
         UPDATE sessions
         SET revoked_at = datetime('now')
         WHERE user_id = ? AND refresh_token_hash != ?
@@ -221,14 +221,14 @@ export async function registerUserRoutes(fastify) {
       const { page, size } = validation.data;
       const offset = (page - 1) * size;
 
-      const users = db.prepare(`
+      const users = getDb().prepare(`
         SELECT id, email, name, registration, status, last_login_at, created_at
         FROM users
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
       `).all(size, offset);
 
-      const { count } = db.prepare(`
+      const { count } = getDb().prepare(`
         SELECT COUNT(*) as count FROM users
       `).get();
 
@@ -262,7 +262,7 @@ export async function registerUserRoutes(fastify) {
 
     try {
       // Verificar se email já existe
-      const existingUser = db.prepare(`
+      const existingUser = getDb().prepare(`
         SELECT id FROM users WHERE email = ?
       `).get(email);
 
@@ -278,20 +278,20 @@ export async function registerUserRoutes(fastify) {
       const userId = randomUUID();
 
       // Criar usuário
-      db.prepare(`
+      getDb().prepare(`
         INSERT INTO users (id, email, name, registration, password_hash, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
       `).run(userId, email, name, registration, passwordHash);
 
       // Atribuir roles
       for (const roleId of roles) {
-        db.prepare(`
+        getDb().prepare(`
           INSERT INTO user_roles (user_id, role_id, granted_by, granted_at)
           VALUES (?, ?, ?, datetime('now'))
         `).run(userId, roleId, request.user.id);
       }
 
-      const createdUser = db.prepare(`
+      const createdUser = getDb().prepare(`
         SELECT id, email, name, registration, status, created_at
         FROM users WHERE id = ?
       `).get(userId);
@@ -336,7 +336,7 @@ export async function registerUserRoutes(fastify) {
       }
 
       // Verificar se role existe
-      const role = db.prepare(`
+      const role = getDb().prepare(`
         SELECT id FROM roles WHERE id = ?
       `).get(role_id);
 
@@ -348,7 +348,7 @@ export async function registerUserRoutes(fastify) {
       }
 
       // Verificar se já tem role
-      const existingRole = db.prepare(`
+      const existingRole = getDb().prepare(`
         SELECT id FROM user_roles
         WHERE user_id = ? AND role_id = ?
       `).get(user_id, role_id);
@@ -361,7 +361,7 @@ export async function registerUserRoutes(fastify) {
       }
 
       // Atribuir role
-      db.prepare(`
+      getDb().prepare(`
         INSERT INTO user_roles (user_id, role_id, granted_by, granted_at, expires_at)
         VALUES (?, ?, ?, datetime('now'), ?)
       `).run(user_id, role_id, request.user.id, expires_at || null);
@@ -384,7 +384,7 @@ export async function registerUserRoutes(fastify) {
     const { user_id, role_id } = request.params;
 
     try {
-      const deleted = db.prepare(`
+      const deleted = getDb().prepare(`
         DELETE FROM user_roles
         WHERE user_id = ? AND role_id = ?
       `).run(user_id, role_id);

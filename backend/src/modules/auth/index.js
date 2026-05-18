@@ -98,7 +98,7 @@ export async function registerAuthRoutes(fastify) {
           lockedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
         }
 
-        db.prepare(`
+        getDb().prepare(`
           UPDATE users
           SET failed_attempts = ?, locked_until = ?
           WHERE id = ?
@@ -111,7 +111,7 @@ export async function registerAuthRoutes(fastify) {
       }
 
       // Resetar failed_attempts
-      db.prepare(`
+      getDb().prepare(`
         UPDATE users
         SET failed_attempts = 0, locked_until = NULL, last_login_at = datetime('now')
         WHERE id = ?
@@ -141,15 +141,17 @@ export async function registerAuthRoutes(fastify) {
 
       // Armazenar refresh token hash em sessions
       const sessionId = randomBytes(16).toString('hex');
-      db.prepare(`
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      getDb().prepare(`
         INSERT INTO sessions (id, user_id, refresh_token_hash, ip, user_agent, expires_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))
+        VALUES (?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         user.id,
         refreshTokenHash,
-        request.headers['x-forwarded-for']?.split(',')[0] || request.ip,
-        request.headers['user-agent']
+        request.headers['x-forwarded-for']?.split(',')[0] || request.ip || 'unknown',
+        request.headers['user-agent'] || null,
+        expiresAt
       );
 
       // Setar cookies
@@ -175,10 +177,11 @@ export async function registerAuthRoutes(fastify) {
         access_token: accessToken,
       });
     } catch (error) {
-      fastify.log.error({ error }, 'Erro no login');
+      fastify.log.error({ error, stack: error.stack }, 'Erro no login');
       reply.status(500).send({
         error: 'Internal Server Error',
         message: 'Erro ao processar login',
+        debug: error.message,
       });
     }
   });
@@ -245,7 +248,7 @@ export async function registerAuthRoutes(fastify) {
       const refreshTokenHash = hashToken(refreshToken);
 
       const sessionId = randomBytes(16).toString('hex');
-      db.prepare(`
+      getDb().prepare(`
         INSERT INTO sessions (id, user_id, refresh_token_hash, ip, user_agent, expires_at)
         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))
       `).run(
@@ -296,7 +299,7 @@ export async function registerAuthRoutes(fastify) {
       const refreshToken = request.cookies.__Host_refresh;
       if (refreshToken) {
         const refreshTokenHash = hashToken(refreshToken);
-        db.prepare(`
+        getDb().prepare(`
           UPDATE sessions
           SET revoked_at = datetime('now')
           WHERE refresh_token_hash = ? AND revoked_at IS NULL
@@ -334,7 +337,7 @@ export async function registerAuthRoutes(fastify) {
       const refreshTokenHash = hashToken(refreshToken);
 
       // Verificar se refresh token está na sessions table e não foi revogado
-      const session = db.prepare(`
+      const session = getDb().prepare(`
         SELECT user_id FROM sessions
         WHERE refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > datetime('now')
       `).get(refreshTokenHash);
@@ -352,14 +355,14 @@ export async function registerAuthRoutes(fastify) {
       const newRefreshTokenHash = hashToken(newRefreshToken);
 
       // Revogar token anterior e criar nova sessão
-      db.prepare(`
+      getDb().prepare(`
         UPDATE sessions
         SET revoked_at = datetime('now')
         WHERE refresh_token_hash = ?
       `).run(refreshTokenHash);
 
       const newSessionId = randomBytes(16).toString('hex');
-      db.prepare(`
+      getDb().prepare(`
         INSERT INTO sessions (id, user_id, refresh_token_hash, ip, user_agent, expires_at)
         VALUES (?, ?, ?, ?, ?, datetime('now', '+7 days'))
       `).run(
